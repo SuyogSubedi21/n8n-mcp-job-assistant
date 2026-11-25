@@ -1,0 +1,272 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "CV job fit checker",
+        "formDescription": "Upload the cv and see how much you fir ",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "CV",
+              "fieldType": "file",
+              "acceptFileTypes": "pdf",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "job description",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3b32711a-a9bf-4d3b-9119-a5de8ad4941e",
+      "name": "On form submission",
+      "webhookId": "ee17eb1f-fc9d-4f97-97a9-b51daa0ed83a"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "CV",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "9865f5ca-ad49-49f1-bcc0-7d2ab87dea4a",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Job description:\n{{ $('On form submission').item.json['Job Description'] || $('On form submission').item.json['Job description'] }}\n\nCV:\n{{ $json.text }}\n\nSteps:\n1. Extract the key required skills from the job description (max 15).\n2. Find the years of experience the job asks for (use 0 if none is mentioned).\n3. Work out the candidate's total relevant work experience in years from the CV (internships count; use decimals, e.g. 0.5).\n4. Call the check_cv_fit tool with the full CV text, the skill list, required_years and candidate_years.\n5. Give your own fit rating out of 100 based on the CV and job.\n6. Final score = average of the tool score and your rating.\n\nReply with: tool score, skill score, experience score and note, your rating, final score, matched skills, missing skills (gaps), and a 2-line summary.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        448,
+        0
+      ],
+      "id": "b1276562-5122-4e53-bebf-b6f9e5b15772",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        320,
+        208
+      ],
+      "id": "f045c532-e40c-4379-934e-6df293e25490",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "47BtpTO4cPerYoFS",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://host.docker.internal:8000/mcp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        416,
+        208
+      ],
+      "id": "ccdf0831-12d3-4fc8-abfa-28e6b3ab6296",
+      "name": "MCP Client"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyHour"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": ""
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        816,
+        0
+      ],
+      "id": "ba4dc752-69a4-4154-8a35-fad6c511956d",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "2sPnqPCJvTYEmSeY",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Email from: {{ $json.from.text }}\nSubject: {{ $json.subject }}\nBody: {{ $json.text }}\n\nDecide if this email is about a job application I made. If it is not job related, reply only \"IGNORE\" and call no tools.\n\nJob alerts, job recommendations and newsletters (for example \"new jobs for you\", \"10 more jobs\", \"jobs you may like\") are NOT my applications. Reply only \"IGNORE\" for these and call no tools.\n\nIf it is about my own application, classify it as exactly one of: confirmation, interview, rejected, offer.\n\nRules:\n- confirmation (they received my application): call add_application with the company, role and status \"applied\".\n- interview, rejected or offer: first call update_status with the company name and the status word.\n- If update_status says 0 rows were updated, the company is not saved yet, so call add_application with the company, role and that same status.\n\nUse only the company name, for example \"Intuji\", not \"Intuji Pvt Ltd\".\nReply with one short line saying what you did.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1040,
+        0
+      ],
+      "id": "bbe56284-7b58-4676-8b31-163c9d860502",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "http://host.docker.internal:8000/mcp",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.4,
+      "position": [
+        1312,
+        304
+      ],
+      "id": "321fb294-bf4d-4a17-8ad2-4aa5ee6f4b29",
+      "name": "MCP Client1"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        912,
+        208
+      ],
+      "id": "3c05cf5a-06f5-44b7-a79a-7caa7af9b03e",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "47BtpTO4cPerYoFS",
+          "name": "OpenRouter account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bb71e428-17f0-4cef-b7e3-20f7424352e2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "96aeececb1dc2999953ff744d2b3f6f9bc71bcd5bf0adae1f76e325eae11c8b4"
+  },
+  "nodeGroups": [],
+  "id": "YmNWpQt5Hax8JDVj",
+  "tags": []
+}
